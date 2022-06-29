@@ -52,7 +52,7 @@ int bounce(int i){
 
 void bounceSequence()
 {
-  while(delayTime > 10){
+  while(delayTime > 0){
     for(int i = 8; i < 13; i++){
         bounce(i);
         if (!isPoweredOn())
@@ -65,5 +65,10 @@ void bounceSequence()
             return;
     }
     delayTime -= delayTime * 0.10;
+    Serial.println(delayTime);
+    if(delayTime <= 10)
+    {
+      delayTime = 1000;
+    }    
   }
 }

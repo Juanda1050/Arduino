@@ -1,12 +1,8 @@
 const int startBtn = 2;
 const int increaseBtn = 3;
-int delayTime = 1000;
-int state = 0;
-bool turnOff = false;
-bool access = false;
-bool increaseSpeed = false;
-
 const int LEDs[] = {8, 9, 10, 11, 12, 13};
+volatile int delayTime = 3000;
+int state = 0;
 
 void setup()
 {
@@ -15,21 +11,7 @@ void setup()
       pinMode(pinLed, OUTPUT);
   }
   pinMode(startBtn, INPUT);
-  pinMode(increaseBtn, INPUT);
-}
-
-bool isPoweredOn() {
-  int previousState = state;
-  int input = digitalRead(startBtn);
-  state = input == HIGH ? !state: state;
-  Serial.println(state);
-  return state;
-}
-
-void shutdown()
-{
-  for (int i = 0; i < sizeof(LEDs); i++)
-    digitalWrite(LEDs[i], LOW);
+  attachInterrupt(digitalPinToInterrupt(increaseBtn), acelerateLED, RISING);
 }
 
 void loop()
@@ -42,6 +24,24 @@ void loop()
   else {
       shutdown();
   }
+}
+
+bool isPoweredOn() {
+  int previousState = state;
+  int input = digitalRead(startBtn);
+  state = input == HIGH ? !state: state;
+  return state;
+}
+
+void acelerateLED()
+{
+  delayTime -= delayTime * 0.10;
+}
+
+void shutdown()
+{
+  for (int i = 0; i < sizeof(LEDs); i++)
+    digitalWrite(LEDs[i], LOW);
 }
 
 int bounce(int i){
@@ -59,6 +59,7 @@ void bounceSequence()
             return;
     }
     delayTime -= delayTime * 0.10;
+    Serial.println(delayTime);
     for(int i = 13; i > 8; i--){
         bounce(i);
         if (!isPoweredOn())
@@ -68,7 +69,7 @@ void bounceSequence()
     Serial.println(delayTime);
     if(delayTime <= 10)
     {
-      delayTime = 1000;
+      delayTime = 3000;
     }    
   }
 }

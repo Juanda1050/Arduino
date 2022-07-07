@@ -7,14 +7,15 @@
 
 int dhtPin = 10;
 int alarm = 6;
+int lap = 1;
 DHT HT(dhtPin, Type);
 SFE_BMP180 sensorPressure;
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
-float humidity;
-float tempC;
+double humidity, tempC;
 char status;
 double pressure, tempPressure, relativePressure, altitudeSea;
 double seaLevel = 1014.0;
+double auxPressure, auxHumidity, precipitation;
 
 void setup()
 {
@@ -28,9 +29,8 @@ void setup()
 
 void loop()
 {
-  
   setValues();
-  
+  lap++;  
 }
 
 void startupMessage() {
@@ -48,6 +48,7 @@ void startupMessage() {
 }
 
 void setValues(){
+  auxPressure = relativePressure;
   humidity = HT.readHumidity();
   tempC = HT.readTemperature();
   
@@ -57,20 +58,40 @@ void setValues(){
   status = sensorPressure.startPressure(3);
   delay(status);
   sensorPressure.getPressure(pressure, tempPressure);
-  relativePressure = pressure * 0.1;
+  relativePressure = pressure * 0.750062;
   altitudeSea = sensorPressure.altitude(pressure, seaLevel);
   
-  Serial.println(humidity);
-  Serial.println(tempC);
+  Serial.println("Humedad " + String(humidity));
+  Serial.println("Temperatura " + String(tempC));
+  Serial.println("Presion " + String(relativePressure));
 
-   displayValues(humidity, tempC, relativePressure, altitudeSea);
+  if(lap == 1){
+    precipitation = 0;
+  }
+  else if(auxPressure >= relativePressure){
+    precipitation = (auxPressure - relativePressure) / (humidity * 0.1) * 100;
+  }
+  else if(auxPressure == relativePressure){
+    precipitation = precipitation;
+  }
+  else{
+    precipitation = (relativePressure - auxPressure) / (humidity * 0.1) * 100;
+  }
+  
+  Serial.println("Aux Humedad " + String(auxHumidity));
+  Serial.println("Aux Presion " + String(auxPressure));
+  Serial.println("Precipitacion " + String(precipitation));
+  Serial.println("");
+  
+  displayValues(humidity, tempC, relativePressure, altitudeSea, precipitation);
 }
 
-void displayValues(float humidity, float tempC, float relativePressure, float altitudeSea){
+void displayValues(double humidity, double tempC, double relativePressure, double altitudeSea, double precipitation){ 
   String temp_output = "TEMP: " + String(tempC) + String((char)223) + "C";
   String hum_output = "HUMEDAD: " + String(humidity) + "%";
-  String pres_output = "PRES: " + String(relativePressure) + " KPa";
+  String pres_output = "BAR: " + String(relativePressure) + " mmHg";
   String alt_output = "ALT: " + String(altitudeSea) + " m";
+  String prec_output = "PRECIP: " + String(precipitation) + "%";
   
   lcd.setCursor(0, 0);
   lcd.print(temp_output);
@@ -84,6 +105,10 @@ void displayValues(float humidity, float tempC, float relativePressure, float al
   lcd.setCursor(0, 1);
   lcd.print(alt_output);
   tempAlarm(tempC);
+  delay(3000);
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print(prec_output);
   delay(3000);
   lcd.clear();
 }

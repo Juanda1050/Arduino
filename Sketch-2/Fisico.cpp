@@ -15,7 +15,7 @@ double humidity, tempC;
 char status;
 double pressure, tempPressure, relativePressure, altitudeSea;
 double seaLevel = 1014.0;
-double auxPressure, auxHumidity, precipitation;
+double precipitation, kPaPressure;
 
 const int nextBtn = 13;
 int displayValue = 0;
@@ -87,7 +87,7 @@ void getDHT11(void){
 }
 
 void getBMP180(void){
-  auxPressure = relativePressure;
+  getDHT11();
   status = sensorPressure.startTemperature();
   delay(status);
   sensorPressure.getTemperature(tempPressure);
@@ -95,19 +95,17 @@ void getBMP180(void){
   delay(status);
   sensorPressure.getPressure(pressure, tempPressure);
   relativePressure = pressure * 0.750062;
+  kPaPressure = pressure * 0.1;
   altitudeSea = sensorPressure.altitude(pressure, seaLevel);
 
   if(lap == 1){
     precipitation = 0;
   }
-  else if(auxPressure >= relativePressure){
-    precipitation = (auxPressure - relativePressure) / (humidity * 0.1) * 100;
-  }
-  else if(auxPressure == relativePressure){
-    precipitation = precipitation;
+  else if(humidity == 0 || humidity <= tempC){
+    precipitation = 0;
   }
   else{
-    precipitation = (relativePressure - auxPressure) / (humidity * 0.1) * 100;
+    precipitation = ((humidity - tempC) / kPaPressure) * 100;
   }
 
   lap++;
@@ -117,7 +115,7 @@ void displayTemp(void){
   getDHT11();
   
   String temp_output = "TEMP: " + String(tempC, 1) + String((char)223) + "C ";
-  String hum_output = "HUM: " + String(humidity, 0) + "%";
+  String hum_output = "HUMEDAD: " + String(humidity, 0) + "%";
   
   lcd.setCursor(0, 0);
   lcd.print(temp_output);
@@ -142,14 +140,18 @@ void displayPres(void){
 void displayPrecip(void){
   getBMP180();  
   String prec_output = "PRECIP: " + String(precipitation) + "%";
-  
-  lcd.setCursor(0,1);
+  String kpa_output = "BAR: " + String(kPaPressure, 1) + " kPa";
+ 
+  lcd.setCursor(0,0);
+  lcd.print(kpa_output);
+  lcd.setCursor(0, 1);
   lcd.print(prec_output);
 }
 
 void setTemp(){
   String tempMin_output = "MIN: 5" + String((char)223) + "C";
   String tempMax_output = "MAX: 36" + String((char)223) + "C";
+  
   lcd.setCursor(0, 0);
   lcd.print(tempMin_output);
   lcd.setCursor(0, 1);

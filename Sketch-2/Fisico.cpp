@@ -17,10 +17,13 @@ double pressure, tempPressure, relativePressure, altitudeSea;
 double seaLevel = 1014.0;
 double auxPressure, auxHumidity, precipitation;
 
+const int nextBtn = 13;
+
 void setup()
 {
   Serial.begin(9600);
   pinMode(alarm, OUTPUT);
+  pinMode(nextBtn, INPUT);
   HT.begin();
   sensorPressure.begin();
   lcd.begin(16, 2);
@@ -64,6 +67,7 @@ void setValues(){
   Serial.println("Humedad " + String(humidity));
   Serial.println("Temperatura " + String(tempC));
   Serial.println("Presion " + String(relativePressure));
+  Serial.println(counter);
 
   if(lap == 1){
     precipitation = 0;
@@ -82,21 +86,22 @@ void setValues(){
   Serial.println("Aux Presion " + String(auxPressure));
   Serial.println("Precipitacion " + String(precipitation));
   Serial.println("");
-  
+
   displayValues(humidity, tempC, relativePressure, altitudeSea, precipitation);
 }
 
 void displayValues(double humidity, double tempC, double relativePressure, double altitudeSea, double precipitation){ 
-  String temp_output = "TEMP: " + String(tempC) + String((char)223) + "C";
-  String hum_output = "HUMEDAD: " + String(humidity) + "%";
-  String pres_output = "BAR: " + String(relativePressure) + " mmHg";
-  String alt_output = "ALT: " + String(altitudeSea) + " m";
-  String prec_output = "PRECIP: " + String(precipitation) + "%";
+  String temp_output = "T:" + String(tempC, 1) + String((char)223) + "C ";
+  String hum_output = "H:" + String(humidity, 0) + "%";
+  String pres_output = "BAR:" + String(relativePressure, 1) + " mmHg";
+  String alt_output = "ALT:" + String(altitudeSea) + " m";
+  String prec_output = "PRECIP:" + String(precipitation) + "%";
   
   lcd.setCursor(0, 0);
   lcd.print(temp_output);
-  lcd.setCursor(0, 1);
   lcd.print(hum_output);
+  lcd.setCursor(0,1);
+  lcd.print(prec_output);
   tempAlarm(tempC);
   delay(3000);
   lcd.clear();
@@ -105,10 +110,6 @@ void displayValues(double humidity, double tempC, double relativePressure, doubl
   lcd.setCursor(0, 1);
   lcd.print(alt_output);
   tempAlarm(tempC);
-  delay(3000);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print(prec_output);
   delay(3000);
   lcd.clear();
 }

@@ -17,21 +17,35 @@ double pressure, tempPressure, relativePressure, altitudeSea;
 double seaLevel = 1014.0;
 double auxPressure, auxHumidity, precipitation;
 
-const int buttonPin = 13;
-int state = 0;
-int menu = 0;
-
-int WhichScreen =1;   // This variable stores the current Screen number
+int WhichScreen = 1 ; 
 boolean hasChanged = true;
-int buttonState;             // the current reading from the input pin
-int lastButtonState = LOW;   // the previous reading from the input pin
-unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
-unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
+int buttonState;            
+int lastButtonState = LOW;  
+unsigned long lastDebounceTime = 0;  
+unsigned long debounceDelay = 50;
+    
+const int buttonPin = 13;
+const int upBtn = 8;
+const int downBtn = 7;
+int state = 0;
+int upCounter = 5; 
+int downCounter = 36;   
+int up_buttonState = 0;         
+int up_lastButtonState = 0;    
+int down_buttonState = 0;        
+int down_lastButtonState = 0;    
+
+bool bPress = false;
+
+unsigned long prevMillis = 0;
+unsigned long curMillis;
 
 void setup()
 {
   Serial.begin(9600);
   pinMode(buttonPin, INPUT);
+  pinMode( upBtn , INPUT_PULLUP);
+  pinMode( downBtn , INPUT_PULLUP);
   pinMode(alarm, OUTPUT);
   HT.begin();
   sensorPressure.begin();
@@ -44,48 +58,35 @@ void loop()
   if (hasChanged == true) {
   switch(WhichScreen) {
     case 1:
-      tempHum();
+      displayValues();
       break;
     case 2:
       setTemp();
       break;
-  
     }
-}
+  }
  
-    //-------------------------------
-    // BEGIN of the switch debouncing code
-    int reading = digitalRead(buttonPin);
+  int reading = digitalRead(buttonPin);
   if (reading != lastButtonState) {
-    // reset the debouncing timer
     lastDebounceTime = millis();
   }
  
-if ((millis() - lastDebounceTime) > debounceDelay) {
-    // whatever the reading is at, it's been there for longer
-    // than the debounce delay, so take it as the actual current state:
- 
-    // if the button state has changed:
-    if (reading != buttonState) {
-      buttonState = reading;
- 
-      // only toggle the LED if the new button state is HIGH
-      if (buttonState == HIGH) {
-        hasChanged = true;
-        WhichScreen++;
-       
-       
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+      if (reading != buttonState) {
+        buttonState = reading;
+        if (buttonState == HIGH) {
+          hasChanged = true;
+          WhichScreen++;
+        }
+      } else {
+        hasChanged = false;
       }
-    } else {
-      hasChanged = false;
     }
-  }
-  lastButtonState = reading;
-  // END of the switch Debouncing code
-  // --------------------------------------
-  if (WhichScreen > 2){
-    WhichScreen = 1;
-  }
+    lastButtonState = reading;
+
+    if (WhichScreen > 2){
+      WhichScreen = 1;
+    }
 }
 
 void startupMessage() {
@@ -102,29 +103,37 @@ void startupMessage() {
   delay(100);
 }
 
+void displayValues(){
+  static unsigned long diff;
+
+  curMillis = millis();
+  diff = curMillis - prevMillis;
+  switch (diff) {
+    case 1000:
+      tempHum();
+      break;
+    case 4000:
+      pressureAltitude();
+      break;
+    case 10000:
+      lcd.clear();
+      prevMillis = millis();
+      break;
+  }
+}
+
 void tempHum(){ 
   humidity = HT.readHumidity();
   tempC = HT.readTemperature();
   
   String temp_output = "TEMP: " + String(tempC) + String((char)223) + "C";
   String hum_output = "HUMEDAD: " + String(humidity) + "%";
-  int i = 10;
-  while (i > 0){
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(temp_output);
-    lcd.setCursor(0, 1);
-    lcd.print(hum_output);
-    tempAlarm(tempC);
-    delay(3000);
-    pressureAltitude();
-    delay(3000);
-    tempHum();
-    i++;
-    if(i <= 1){
-      i = 10;
-    }
-  }
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(temp_output);
+  lcd.setCursor(0, 1);
+  lcd.print(hum_output);
+  tempAlarm(tempC);
 }
 
 void pressureAltitude(){
@@ -165,20 +174,77 @@ void pressureAltitude(){
 }
 
 void setTemp(){
-  String tempMin_output = "MIN: 5" + String((char)223) + "C";
-  String tempMax_output = "MAX: 36" + String((char)223) + "C";
+  checkUp();
+  checkDown();
+  lcd.clear();
+  String tempMin_output = "MIN: " + String(downCounter) + String((char)223) + "C";
+  String tempMax_output = "MAX: " + String(upCounter) + String((char)223) + "C";
+  if( bPress){
+    bPress = false;
+    lcd.setCursor(0, 0);
+    lcd.print(tempMin_output);
+    lcd.setCursor(0, 1);
+    lcd.print(tempMax_output);
+  }
+
+}
+
+void showError(){
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print(tempMin_output);
-  lcd.setCursor(0, 1);
-  lcd.print(tempMax_output);
+  lcd.print("Error display");
 }
 
 void tempAlarm(float tempC){
-  if(tempC >= 36 || tempC < 5){
+  if(tempC >= upCounter || tempC < downCounter){
     digitalWrite(alarm, HIGH);
     delay(300);
     digitalWrite(alarm, LOW);
     delay(300);
   }
+}
+
+void checkUp(){
+  up_buttonState = digitalRead(upBtn);
+  if (up_buttonState != up_lastButtonState) {
+    if (up_buttonState == LOW) {
+      bPress = true;
+      upCounter++;
+      Serial.println("on");
+      Serial.print("number of button pushes: ");
+      Serial.println(upCounter);
+      if(upCounter >= 50){
+        upCounter = 21;
+      }
+
+    } else {
+      Serial.println("off");
+    }
+    delay(50);
+
+  }
+  up_lastButtonState = up_buttonState;
+
+}
+
+void checkDown(){
+  down_buttonState = digitalRead(downBtn);
+  if (down_buttonState != down_lastButtonState) {
+    if (down_buttonState == LOW) {
+      bPress = true;
+      downCounter--;
+      Serial.println("on");
+      Serial.print("number of button pushes: ");
+      Serial.println(downCounter);
+      if(downCounter <= -20){
+        downCounter = 20;
+      }
+
+    } else {
+      Serial.println("off");
+    }
+    delay(50);
+
+  }
+  down_lastButtonState = down_buttonState;
 }

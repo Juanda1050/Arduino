@@ -5,21 +5,30 @@
 #include <LiquidCrystal.h>
 #define Type DHT11
 
-int dhtPin = 10;
-int alarm = 6;
-int lap = 1;
+const int  RS = 12, E = 11, D4 = 5, D5 = 4, D6 = 3, D7 = 2;
+LiquidCrystal lcd(RS, E, D4, D5, D6, D7);
+
+const int alarm = 6;
+const int editBtn = 7;
+const int nextBtn = 8;
+const int downBtn = 9;
+const int upBtn = 10;
+const int dhtPin = 13;
+
 DHT HT(dhtPin, Type);
 SFE_BMP180 sensorPressure;
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
 double humidity, tempC;
 char status;
 double pressure, tempPressure, relativePressure, altitudeSea;
+int lap = 1;
 double seaLevel = 1014.0;
 double precipitation, kPaPressure;
 
-const int nextBtn = 13;
 int displayValue = 0;
-
+int editValue = 0;
+int maxTemp = 40, minTemp = 5;
+bool edit = false;
 void displayTemp(void);
 void displayPres(void);
 void displayPrecip(void);
@@ -30,7 +39,10 @@ void setup()
 {
   Serial.begin(9600);
   pinMode(alarm, OUTPUT);
+  pinMode(editBtn, INPUT);
   pinMode(nextBtn, INPUT);
+  pinMode(downBtn, INPUT);
+  pinMode(upBtn, INPUT);
   HT.begin();
   sensorPressure.begin();
   lcd.begin(16, 2);
@@ -39,32 +51,89 @@ void setup()
 
 void loop()
 {
-  if(digitalRead(nextBtn) == HIGH){
-    displayValue++;
+  if(digitalRead(editBtn) == HIGH){
+    edit = !edit;
+    editValue = 0;
+    displayValue = 0;
+    delay(1000);
   }
-  switch(displayValue){
-    case 0:
-      lcd.clear();
-      displayTemp();
-    break;
-    case 1:
-      lcd.clear();
-      displayPres();
-    break;
-    case 2:
-      lcd.clear();
-      displayPrecip();
-    break;
-    case 3:
-      lcd.clear();
-      setTemp();
-    break;
-    default:
-      lcd.clear();
-      displayValue = 0;
-      displayTemp();
+
+  if(edit == false){
+    lcd.noCursor();
+    if(digitalRead(nextBtn) == HIGH){
+      displayValue++;
+    }
+    switch(displayValue){
+      case 0:
+        lcd.clear();
+        displayTemp();
+      break;
+      case 1:
+        lcd.clear();
+        displayPres();
+      break;
+      case 2:
+        lcd.clear();
+        displayPrecip();
+      break;
+      case 3:
+        lcd.clear();
+        setTemp();
+      break;
+      default:
+        lcd.clear();
+        displayValue = 0;
+        displayTemp();
+      break;
+    }
+    delay(1000);
   }
-  delay(1000);
+  else {
+    delay(1000);
+    lcd.clear();
+    if(digitalRead(nextBtn) == HIGH){
+      editValue++;
+    }
+    switch(editValue){
+      case 0: 
+        lcd.noCursor();
+        setTemp();
+        if(digitalRead(upBtn) == HIGH){
+          minTemp++;
+          if(minTemp >= maxTemp) minTemp = 0;
+        }
+        if(digitalRead(downBtn) == HIGH) {
+          minTemp--;
+          if(minTemp <= 0) minTemp = maxTemp - 1;
+        }
+        lcd.setCursor(0, 1);
+        lcd.cursor();
+        break;
+      case 1:
+        lcd.noCursor();
+        setTemp();
+        if(digitalRead(upBtn) == HIGH){
+          maxTemp++;
+          if(maxTemp >= 50) maxTemp = minTemp + 1;
+        }
+        if(digitalRead(downBtn) == HIGH) {
+          maxTemp--;
+          if(maxTemp <= minTemp) maxTemp = 50;
+        }
+        lcd.setCursor(7, 1);
+        lcd.cursor();
+        break;
+      default:
+        editValue = 0;
+        lcd.noCursor();
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("SET ALARM");
+        lcd.setCursor(0, 1);
+        lcd.print("TEMP MIN - MAX");
+        break;
+    }
+  }
 }
 
 void startupMessage() {
@@ -125,6 +194,7 @@ void displayTemp(void){
 }
 
 void displayPres(void){
+  getDHT11();
   getBMP180();
   
   String pres_output = "BAR: " + String(relativePressure, 1) + " mmHg";
@@ -139,6 +209,7 @@ void displayPres(void){
 
 void displayPrecip(void){
   getBMP180();  
+  getDHT11();
   String prec_output = "PRECIP: " + String(precipitation) + "%";
   String kpa_output = "BAR: " + String(kPaPressure, 1) + " kPa";
  
@@ -146,16 +217,19 @@ void displayPrecip(void){
   lcd.print(kpa_output);
   lcd.setCursor(0, 1);
   lcd.print(prec_output);
+  tempAlarm(tempC);
 }
 
 void setTemp(){
-  String tempMin_output = "MIN: 5" + String((char)223) + "C";
-  String tempMax_output = "MAX: 36" + String((char)223) + "C";
+  getDHT11();
+  String alarm_output = "TEMP ALARM SET";
+  String tempSet_output = String(minTemp) + String((char)223) + "C" + " - " + String(maxTemp) + String((char)223) + "C";
   
   lcd.setCursor(0, 0);
-  lcd.print(tempMin_output);
+  lcd.print(alarm_output);
   lcd.setCursor(0, 1);
-  lcd.print(tempMax_output);
+  lcd.print(tempSet_output);
+  tempAlarm(tempC);
 }
 
 void showError(){
@@ -164,10 +238,11 @@ void showError(){
 }
 
 void tempAlarm(float tempC){
-  if(tempC >= 36 || tempC < 5){
+  if(tempC >= (double)maxTemp || tempC <= (double)minTemp){
     digitalWrite(alarm, HIGH);
     delay(300);
     digitalWrite(alarm, LOW);
     delay(300);
   }
+  
 }
